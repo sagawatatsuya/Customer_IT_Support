@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "adanotinollm"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+openai = "^1.10.0"
+faiss-cpu = "^1.7.4"
+pandas = "^2.2.2"
+python-dotenv = "^1.0.1"
+notion-client = "^2.3.0"
+streamlit = "^1.45.0"
+numpy = "1.26.4"
+tiktoken = "^0.9.0"
+langchain = "^0.3.26"
+langchain-community = "<0.3.27"
+langchain-openai = "^0.3.27"
+matplotlib = "^3.10.3"
+seaborn = "^0.13.2"
+bert-score = "^0.3.13"
+rouge-score = "^0.1.2"
+scikit-learn = "^1.7.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
