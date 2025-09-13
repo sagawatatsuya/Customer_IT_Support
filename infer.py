@@ -1,84 +1,55 @@
-# infer.py
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-import os
+model_name = "Qwen/Qwen2.5-32B-Instruct"
 
-import pandas as pd
-from dotenv import load_dotenv
-from langchain_community.vectorstores import FAISS
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype="auto",
+    device_map="auto"
+)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
+prompt = "Give me a short introduction to large language model."
+messages = [
+    {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
+    {"role": "user", "content": prompt}
+]
+text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True
+)
+model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
 
-def build_prompt(similar_docs, query_row):
-    context = "\n\n".join(
-        f"subject: {doc.page_content}\ntype: {doc.metadata['type']}\nqueue: {doc.metadata['queue']}\npriority: {doc.metadata['priority']}\nanswer: {doc.metadata['answer']}"
-        for doc in similar_docs
-    )
+generated_ids = model.generate(
+    **model_inputs,
+    max_new_tokens=512
+)
+generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+]
 
-    prompt = f"""
-以下の過去事例を参考にして、新しい問い合わせに対して最適なtype, queue, priority, answerを提案してください。
+response = tokenizer.batch_decode(generated_ids, skip_special_tokens=False)[0]
+print(response)
 
---- 過去の事例 ---
-{context}
+def postprocess_output(text: str, model: str, tokenizer) -> str:
+    if "gpt-oss" in model.lower():
+        if "<|channel|>final<|message|>" in text:
+            text = text.split("<|channel|>final<|message|>")[1].split("<|return|>")[0]
+    elif "deepseek" in model.lower():
+        if "</think>" in text:
+            text = text.split("</think>")[-1].split("<｜end▁of▁sentence｜>")[0]
+    # elif "llama" in model.lower():
+    #     text = text.split("<|eot_id|>")[0].strip()
+    else:
+        # remove special tokens
+        special_tokens = tokenizer.all_special_tokens
+        for tok in special_tokens:
+            text = text.replace(tok, "")
+        text = text.strip()
 
---- 新しい問い合わせ ---
-subject: {query_row["subject"]}
-body: {query_row["body"]}
-language: {query_row["language"]}
-version: {query_row["version"]}
+    return text
 
-出力フォーマット:
-type: …
-queue: …
-priority: …
-answer: …
-"""
-    return prompt
-
-
-def main():
-    # 環境変数読み込み
-    load_dotenv()
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY が .env に設定されていません")
-
-    # 埋め込み & LLM
-    embedding = OpenAIEmbeddings(openai_api_key=api_key)
-    llm = ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=api_key)
-
-    # ベクトルDBをロード
-    db = FAISS.load_local(
-        "faiss_index", embedding, allow_dangerous_deserialization=True
-    )
-
-    # test.csvを読み込み
-    test_df = pd.read_csv("./Customer_IT_Support/test.csv")
-
-    # 行番号を指定
-    row_idx = int(
-        input(f"test.csv の行番号を入力してください（0〜{len(test_df) - 1}）： ")
-    )
-    query_row = test_df.iloc[row_idx]
-
-    query_text = (
-        f"subject: {query_row['subject']}\n"
-        f"body: {query_row['body']}\n"
-        f"language: {query_row['language']}\n"
-        f"version: {query_row['version']}"
-    )
-
-    # 類似事例を検索
-    similar_docs = db.similarity_search(query_text, k=3)
-
-    # プロンプトを構築
-    prompt = build_prompt(similar_docs, query_row)
-
-    # LLM呼び出し
-    result = llm.invoke(prompt)
-
-    print("\n===== 予測結果 =====")
-    print(result.content)
-
-
-if __name__ == "__main__":
-    main()
+response = postprocess_output(response, model_name, tokenizer)
+print("Postprocessed response:")
+print(response)

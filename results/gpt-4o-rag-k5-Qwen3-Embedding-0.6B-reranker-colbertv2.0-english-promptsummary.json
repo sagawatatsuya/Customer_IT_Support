@@ -1,0 +1,12 @@
+{
+  "backend": "openai",
+  "model": "gpt-4o",
+  "use_rag": true,
+  "rag_k": 5,
+  "embedding_backend": "hf",
+  "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
+  "reranker": "colbert-ir/colbertv2.0",
+  "size": 50,
+  "avg_rougeL": 0.4162764363297427,
+  "avg_bertscore": 0.9037071466445923
+}

@@ -22,7 +22,7 @@ def main(hf_model_name: str = None):
         embedding = OpenAIEmbeddings(openai_api_key=api_key)
     else:
         embedding = HuggingFaceEmbeddings(model_name=hf_model_name, multi_process=True)
-        print(f"Model's maximum sequence length: {embedding.client.max_seq_length}")
+        print(f"Model's maximum sequence length: {embedding._client.max_seq_length}")
 
     # train.csvを読み込み
     train_df = pd.read_csv("./Customer_IT_Support/train.csv")
@@ -53,4 +53,4 @@ def main(hf_model_name: str = None):
 
 
 if __name__ == "__main__":
-    main(hf_model_name="Qwen/Qwen3-Embedding-4B")
+    main(hf_model_name="Qwen/Qwen3-Embedding-0.6B")

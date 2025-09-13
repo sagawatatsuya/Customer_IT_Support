@@ -1,0 +1,12 @@
+{
+  "backend": "hf",
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "use_rag": true,
+  "rag_k": 5,
+  "embedding_backend": "hf",
+  "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
+  "reranker": "colbert-ir/colbertv2.0",
+  "size": 50,
+  "avg_rougeL": 0.500658136219463,
+  "avg_bertscore": 0.9133042097091675
+}
