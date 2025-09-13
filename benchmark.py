@@ -71,12 +71,16 @@ class OpenAIBackend(LLMBackend):
         return getattr(resp, "content", str(resp))
 
 
+import torch
+
+
 @dataclass
 class HFConfig:
     model: str = "openai/gpt-oss-20b"
     temperature: float = 0.0
+    top_p: float = 1.0
     max_new_tokens: int = 10000
-    device_map: str = "auto"
+    device_map: str = "cuda" if torch.cuda.is_available() else "auto"
     trust_remote_code: bool = True
     reasoning_effort: str = "medium"
 
@@ -84,6 +88,7 @@ class HFConfig:
 class HFBackend(LLMBackend):
     def __init__(self, cfg: HFConfig):
         self.cfg = cfg
+
         if "gpt-oss" in cfg.model:
             quantization_config = Mxfp4Config(
                 quant_type="mxfp4",
@@ -101,18 +106,28 @@ class HFBackend(LLMBackend):
         self.tokenizer = AutoTokenizer.from_pretrained(
             cfg.model, trust_remote_code=cfg.trust_remote_code
         )
+        # attn_impl = "kernels-community/vllm-flash-attn3"
         self.model = AutoModelForCausalLM.from_pretrained(
             cfg.model,
             device_map=cfg.device_map,
             trust_remote_code=cfg.trust_remote_code,
             quantization_config=quantization_config,
-        )
+            low_cpu_mem_usage=True,
+            # attn_implementation=attn_impl,
+        ).eval()
         self.temperature = cfg.temperature
+        self.top_p = cfg.top_p
         self.max_new_tokens = cfg.max_new_tokens
 
     def generate(self, prompt: str) -> str:
         inputs = self.tokenizer.apply_chat_template(
-            [{"role": "user", "content": prompt}],
+            [
+                # {
+                #     "role": "system",
+                #     "content": "Finish reasoning process in 1024 tokens or less.",
+                # },
+                {"role": "user", "content": prompt},
+            ],
             add_generation_prompt=True,
             return_tensors="pt",
             return_dict=True,
@@ -120,16 +135,34 @@ class HFBackend(LLMBackend):
             if "gpt-oss" in self.cfg.model
             else None,
         ).to(self.model.device)
+        # print decoded prompt for debugging
+        # print(self.tokenizer.decode(inputs["input_ids"][0]))
         out = self.model.generate(
             **inputs,
             max_new_tokens=self.max_new_tokens,
             temperature=self.temperature if self.temperature > 0 else None,
             do_sample=self.temperature > 0,
+            use_cache=True,
+            # top_p=self.top_p,
         )
         text = self.tokenizer.decode(out[0][inputs["input_ids"].shape[-1] :])
+        print(text)
+        text = postprocess_output(text, self.cfg.model)
+        print(f"Model output (postprocessed): {text}")
+        return text
+
+
+def postprocess_output(text: str, model: str) -> str:
+    if "gpt-oss" in model.lower():
         if "<|channel|>final<|message|>" in text:
             text = text.split("<|channel|>final<|message|>")[1].split("<|return|>")[0]
-        return text
+    elif "deepseek" in model.lower():
+        if "</think>" in text:
+            text = text.split("</think>")[-1].split("<｜end▁of▁sentence｜>")[0]
+    elif "llama" in model.lower():
+        text = text.split("<|eot_id|>")[0].strip()
+
+    return text
 
 
 # ------------------------------
@@ -186,37 +219,36 @@ def build_prompt(similar_docs: Iterable, row: pd.Series, use_rag: bool) -> str:
             for d in similar_docs
         )
         context_block = f"""
---- 過去の事例 ---
+--- Past Cases ---
 {context}
 """.strip()
     else:
         context_block = """
---- 過去の事例 ---
-（今回のケースでは過去事例は提供されていません。）
+--- Past Cases ---
+Not provided in this case.
 """.strip()
 
     prompt = f"""
-あなたは IT サポートの熟練エージェントです。過去の事例を考慮して、以下の条件に従い、新しい問い合わせに対して最適な type, queue, priority, answer を提案してください。
-
-- type は次から選択: {" / ".join(CATEGORIES_TYPE)}
-- queue は次から選択: {" / ".join(CATEGORIES_QUEUE)}
-- priority は次から選択: {" / ".join(CATEGORIES_PRIORITY)}
-- answer は body に書かれた内容に対する具体的で適切な回答案を生成してください。
+You are a skilled IT support agent. Taking into account past cases, please propose the optimal `type`, `queue`, `priority`, and `answer` for a new request, following the guidelines below:
+- Choose `type` from: {" / ".join(CATEGORIES_TYPE)}
+- Choose `queue` from: {" / ".join(CATEGORIES_QUEUE)}
+- Choose `priority` from: {" / ".join(CATEGORIES_PRIORITY)}
+- The `answer` should be a concrete and appropriate response based on the content of the body.
 
 {context_block}
 
---- 新しい問い合わせ ---
+--- New Query ---
 subject: {row["subject"]}
 body: {row["body"]}
 language: {row["language"]}
 version: {row["version"]}
 
-出力フォーマットは以下の通り（必ずこの形式で1回だけ出力）:
+Please output exactly once in the following format:
 
-type: <Change|Incident|Problem|Request>
-queue: <カテゴリ名>
-priority: <high|medium|low>
-answer: <回答文>
+type: <Change|Incident|Problem|Request>  
+queue: <one of the queue categories>  
+priority: <high|medium|low>  
+answer: <your response>
 """.strip()
     return prompt
 
@@ -271,7 +303,6 @@ def rerank_docs_keep_metadata(
 
     # 2) リランク（RAGatouilleは List[str] を想定）
     reranker_model = RAGPretrainedModel.from_pretrained(reranker_id)
-    # パラメータ名は実装により k / top_k のどちらか。まず top_k を優先。
     ranked = reranker_model.rerank(query, passages, k=top_k)
 
     # 3) 戻り値の形に応じて “元のインデックス” を復元

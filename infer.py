@@ -21,10 +21,10 @@ def build_prompt(similar_docs, query_row):
 {context}
 
 --- 新しい問い合わせ ---
-subject: {query_row['subject']}
-body: {query_row['body']}
-language: {query_row['language']}
-version: {query_row['version']}
+subject: {query_row["subject"]}
+body: {query_row["body"]}
+language: {query_row["language"]}
+version: {query_row["version"]}
 
 出力フォーマット:
 type: …
@@ -33,6 +33,7 @@ priority: …
 answer: …
 """
     return prompt
+
 
 def main():
     # 環境変数読み込み
@@ -46,13 +47,17 @@ def main():
     llm = ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=api_key)
 
     # ベクトルDBをロード
-    db = FAISS.load_local("faiss_index", embedding, allow_dangerous_deserialization=True)
+    db = FAISS.load_local(
+        "faiss_index", embedding, allow_dangerous_deserialization=True
+    )
 
     # test.csvを読み込み
     test_df = pd.read_csv("./Customer_IT_Support/test.csv")
 
     # 行番号を指定
-    row_idx = int(input(f"test.csv の行番号を入力してください（0〜{len(test_df)-1}）： "))
+    row_idx = int(
+        input(f"test.csv の行番号を入力してください（0〜{len(test_df) - 1}）： ")
+    )
     query_row = test_df.iloc[row_idx]
 
     query_text = (
