@@ -56,6 +56,4 @@ CUDA_VISIBLE_DEVICES=1 python benchmark.py \
 ```
 
 # Todo
-- RAGのembedding modelの選択(https://huggingface.co/spaces/mteb/leaderboard)
-- RAGのdb作成時のチャンク生成方法の考察
 - RAG + reranking, reranking modelの選択

@@ -1,0 +1,10 @@
+              precision    recall  f1-score   support
+
+      Change       1.00      1.00      1.00        11
+    Incident       0.71      0.86      0.77        14
+     Problem       0.80      0.44      0.57         9
+     Request       0.94      1.00      0.97        16
+
+    accuracy                           0.86        50
+   macro avg       0.86      0.83      0.83        50
+weighted avg       0.86      0.86      0.85        50

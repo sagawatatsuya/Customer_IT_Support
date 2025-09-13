@@ -1,0 +1,12 @@
+{
+  "backend": "hf",
+  "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+  "use_rag": true,
+  "rag_k": 5,
+  "embedding_backend": "hf",
+  "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
+  "reranker": "colbert-ir/colbertv2.0",
+  "size": 50,
+  "avg_rougeL": 0.47171975992199483,
+  "avg_bertscore": 0.9101877808570862
+}

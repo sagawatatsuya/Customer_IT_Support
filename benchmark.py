@@ -4,16 +4,16 @@
 from __future__ import annotations
 
 import argparse
-from dotenv import load_dotenv
 import json
 import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple, Optional, Sequence, Any
+from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
 import pandas as pd
+from dotenv import load_dotenv
 
 dotenv_path = Path.home() / ".env"
 load_dotenv(dotenv_path=dotenv_path)
@@ -75,8 +75,8 @@ class HFBackend(LLMBackend):
             import torch  # lazy
             from transformers import (
                 AutoModelForCausalLM,
-                AutoTokenizer,
                 AutoProcessor,
+                AutoTokenizer,
                 BitsAndBytesConfig,
             )
 
@@ -460,7 +460,7 @@ def evaluate(cfg: EvalArgs) -> None:
         from rouge_score import rouge_scorer  # lazy
 
         rouge = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
-    except Exception as e:
+    except Exception:
         rouge = None
 
     reranker_id = cfg.reranker
