@@ -22,6 +22,8 @@ pip install sentence-transformers
 pip install accelerate bitsandbytes
 pip install --upgrade kernels "triton>=3.4"
 pip install RAGatouille
+pip install qwen-vl-utils
+pip install torchvision --index-url https://download.pytorch.org/whl/cu126
 ```
 
 ## 使い方
